@@ -36,7 +36,7 @@ export function UrlChanger({ roomCode, onVideoChange }: Props) {
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <Input
           placeholder="YouTube URL 입력 후 적용"
           value={url}

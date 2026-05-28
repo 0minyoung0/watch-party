@@ -148,7 +148,7 @@ export default function RoomPage({ params }: Props) {
           <UrlChanger roomCode={code} onVideoChange={handleVideoChange} />
         )}
 
-        <div className="flex gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
           {/* Player area */}
           <div className="flex-1 flex flex-col gap-4">
             <Player
@@ -169,7 +169,7 @@ export default function RoomPage({ params }: Props) {
           </div>
 
           {/* Sidebar */}
-          <div className="w-56 flex flex-col gap-4">
+          <div className="w-full md:w-56 flex flex-col gap-4">
             <MemberList members={members} />
           </div>
         </div>
