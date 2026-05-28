@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { MemberList } from "@/components/watch-party/member-list";
 import { Player } from "@/components/watch-party/player";
 import { UrlChanger } from "@/components/watch-party/url-changer";
+import { ChatPanel } from "@/components/watch-party/chat-panel";
 import { useMembers } from "@/hooks/use-members";
 import { useRoom } from "@/hooks/use-room";
 import { usePlaybackSync } from "@/hooks/use-playback-sync";
+import { useChat } from "@/hooks/use-chat";
 import { reattach, leaveRoom } from "@/services/members";
 
 type Session = {
@@ -15,6 +17,7 @@ type Session = {
   nickname: string;
   memberId: string;
   isHost: boolean;
+  joinedAt: string;
 };
 
 type Props = {
@@ -40,6 +43,8 @@ export default function RoomPage({ params }: Props) {
     playerRef,
     onVideoChange: handleVideoChange,
   });
+
+  const messages = useChat(code, session?.joinedAt ?? "");
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const shareUrl = `${origin}/room/${code}`;
@@ -67,12 +72,12 @@ export default function RoomPage({ params }: Props) {
     };
   }, [code, router]);
 
-  // room이 null(삭제됨)이면 closed 페이지로
+  // room 삭제 감지 → closed 페이지
   useEffect(() => {
     if (room === null) router.push(`/room/${code}/closed`);
   }, [room, code, router]);
 
-  // room에 video_id 있으면 초기화
+  // room.video_id 초기화
   useEffect(() => {
     if (room && room.video_id && !videoId) setVideoId(room.video_id);
   }, [room, videoId]);
@@ -96,7 +101,7 @@ export default function RoomPage({ params }: Props) {
 
         <div className="flex gap-4">
           {/* Player area */}
-          <div className="flex-1">
+          <div className="flex-1 flex flex-col gap-4">
             <Player
               roomCode={code}
               videoId={videoId}
@@ -104,6 +109,14 @@ export default function RoomPage({ params }: Props) {
               playerRef={playerRef}
               onStateChange={isHost ? onHostStateChange : undefined}
             />
+            {session && (
+              <ChatPanel
+                messages={messages}
+                roomCode={code}
+                memberId={session.memberId}
+                nickname={session.nickname}
+              />
+            )}
           </div>
 
           {/* Sidebar */}
