@@ -91,7 +91,13 @@ export default function RoomPage({ params }: Props) {
     setSession(s);
     reattach({ memberId: s.memberId, roomCode: code, nickname: s.nickname, isHost: s.isHost });
 
+    const handleUnload = () => {
+      if (!s.isHost) leaveRoom(s.memberId);
+    };
+    window.addEventListener("beforeunload", handleUnload);
+
     return () => {
+      window.removeEventListener("beforeunload", handleUnload);
       if (!s.isHost) leaveRoom(s.memberId);
     };
   }, [code, router]);

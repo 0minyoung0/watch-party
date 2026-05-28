@@ -60,6 +60,10 @@ export function Player({ videoId, playerRef, onStateChange }: Props) {
 
     return () => {
       destroyed = true;
+      if (playerRef.current) {
+        try { playerRef.current.destroy(); } catch { /* ignore */ }
+        playerRef.current = null;
+      }
     };
   }, [videoId, playerRef, onStateChange]);
 

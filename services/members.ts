@@ -65,9 +65,10 @@ export async function reattach({
 
   if (existing) return existing;
 
+  // 재접속 fresh insert 시 is_host는 항상 false — 권한 탈취 방지
   const { data: member } = await supabase
     .from("members")
-    .insert({ room_code: roomCode, nickname, is_host: isHost })
+    .insert({ room_code: roomCode, nickname, is_host: false })
     .select()
     .single();
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, MutableRefObject } from "react";
+import { useEffect, useRef, MutableRefObject, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { getState, broadcastControl } from "@/services/playback";
+import { getState } from "@/services/playback";
 import type { PlaybackState } from "@/types/playback";
 
 type Options = {
@@ -15,6 +15,8 @@ type Options = {
 export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: Options) {
   const hostPositionRef = useRef<number>(0);
   const hostPlayingRef = useRef<boolean>(false);
+  // 구독된 채널 인스턴스를 ref로 보관해 host도 같은 인스턴스로 send
+  const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
     // DB에서 현재 상태 복원
@@ -25,8 +27,8 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
       if (state.video_id && onVideoChange) onVideoChange(state.video_id);
     });
 
-    // broadcast 채널 구독 (viewer: host 제어 수신)
-    const broadcastChannel = supabase
+    // broadcast 채널 구독 — host와 viewer 모두 subscribe, host는 이 채널로 send
+    const ch = supabase
       .channel(`playback:${roomCode}`)
       .on("broadcast", { event: "play" }, ({ payload }) => {
         if (isHost) return;
@@ -55,7 +57,9 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
       })
       .subscribe();
 
-    // postgres_changes: video_id 변경 감지 (viewer에게 새 영상 전달)
+    broadcastChannelRef.current = ch;
+
+    // postgres_changes: video_id 변경 감지
     const dbChannel = supabase
       .channel(`playback-db:${roomCode}`)
       .on(
@@ -71,8 +75,9 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
       .subscribe();
 
     return () => {
-      supabase.removeChannel(broadcastChannel);
+      supabase.removeChannel(ch);
       supabase.removeChannel(dbChannel);
+      broadcastChannelRef.current = null;
     };
   }, [roomCode, isHost, playerRef, onVideoChange]);
 
@@ -98,24 +103,31 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
     return () => clearInterval(interval);
   }, [isHost, playerRef]);
 
-  // host: player 상태 변화 → broadcast + DB write-through
-  function onHostStateChange(event: YT.OnStateChangeEvent) {
+  // host: player 상태 변화 → 구독된 채널을 통해 broadcast + DB write-through
+  const onHostStateChange = useCallback((event: YT.OnStateChangeEvent) => {
     if (!isHost) return;
     const p = playerRef.current;
-    if (!p) return;
+    const ch = broadcastChannelRef.current;
+    if (!p || !ch) return;
 
     const pos = p.getCurrentTime?.() ?? 0;
+    const YTState = (window as Window & { YT?: { PlayerState?: { PLAYING?: number; PAUSED?: number } } }).YT?.PlayerState;
 
-    if (event.data === window.YT?.PlayerState?.PLAYING) {
+    if (event.data === YTState?.PLAYING) {
       hostPositionRef.current = pos;
       hostPlayingRef.current = true;
-      broadcastControl(roomCode, "play", pos, true);
-    } else if (event.data === window.YT?.PlayerState?.PAUSED) {
+      ch.send({ type: "broadcast", event: "play", payload: { positionSeconds: pos, isPlaying: true } });
+      supabase.from("playback_state").upsert({ room_code: roomCode, is_playing: true, position_seconds: pos, updated_at: new Date().toISOString() });
+    } else if (event.data === YTState?.PAUSED) {
       hostPositionRef.current = pos;
       hostPlayingRef.current = false;
-      broadcastControl(roomCode, "pause", pos, false);
+      ch.send({ type: "broadcast", event: "pause", payload: { positionSeconds: pos, isPlaying: false } });
+      supabase.from("playback_state").upsert({ room_code: roomCode, is_playing: false, position_seconds: pos, updated_at: new Date().toISOString() });
     }
-  }
+  }, [isHost, playerRef, roomCode]);
+
+  // host seek 이벤트 (현재 시간 기반 주기적 싱크) — 드리프트 보정 대신 seek 이벤트 직접 감지
+  // YouTube API는 seek 전용 이벤트를 제공하지 않음. PLAYING 이벤트가 seek 후에도 발생하므로 onHostStateChange로 커버됨
 
   return { onHostStateChange, hostPositionRef };
 }
