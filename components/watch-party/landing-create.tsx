@@ -8,6 +8,7 @@ import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { Card } from "@/components/ui/card";
 import { parseYouTubeUrl } from "@/lib/youtube-url";
 import { createRoom } from "@/services/rooms";
+import { saveSession } from "@/hooks/use-session";
 
 export function LandingCreate() {
   const router = useRouter();
@@ -32,12 +33,7 @@ export function LandingCreate() {
     setLoading(true);
     try {
       const { room, host } = await createRoom({ nickname: nickname.trim(), videoId });
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem(
-          "watch-party-session",
-          JSON.stringify({ roomCode: room.code, nickname: host.nickname, memberId: host.id, isHost: true })
-        );
-      }
+      saveSession({ roomCode: room.code, nickname: host.nickname, memberId: host.id, isHost: true, joinedAt: host.joined_at });
       router.push(`/room/${room.code}`);
     } finally {
       setLoading(false);

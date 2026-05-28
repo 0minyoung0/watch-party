@@ -13,6 +13,7 @@ import { usePlaybackSync } from "@/hooks/use-playback-sync";
 import { useChat } from "@/hooks/use-chat";
 import { useHostHeartbeat } from "@/hooks/use-host-heartbeat";
 import { reattach, leaveRoom } from "@/services/members";
+import { getSession } from "@/hooks/use-session";
 
 type Session = {
   roomCode: string;
@@ -76,13 +77,12 @@ export default function RoomPage({ params }: Props) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const raw = sessionStorage.getItem("watch-party-session");
-    if (!raw) {
+    const s = getSession();
+    if (!s) {
       router.push(`/?code=${code}`);
       return;
     }
 
-    const s = JSON.parse(raw) as Session;
     if (s.roomCode !== code) {
       router.push(`/?code=${code}`);
       return;

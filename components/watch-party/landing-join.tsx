@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { Card } from "@/components/ui/card";
 import { joinRoom } from "@/services/members";
+import { saveSession } from "@/hooks/use-session";
 
 type Props = {
   prefillCode?: string;
@@ -31,12 +32,7 @@ export function LandingJoin({ prefillCode }: Props) {
         setError(result.error);
         return;
       }
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem(
-          "watch-party-session",
-          JSON.stringify({ roomCode: code.trim(), nickname: result.member.nickname, memberId: result.member.id, isHost: false })
-        );
-      }
+      saveSession({ roomCode: code.trim(), nickname: result.member.nickname, memberId: result.member.id, isHost: false, joinedAt: result.member.joined_at });
       router.push(`/room/${code.trim()}`);
     } finally {
       setLoading(false);
