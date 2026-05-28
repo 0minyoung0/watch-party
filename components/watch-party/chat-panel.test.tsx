@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChatPanel } from "./chat-panel";
 import type { Message } from "@/types/message";
@@ -36,5 +36,26 @@ describe("ChatPanel", () => {
     await user.click(screen.getByRole("button", { name: /전송/ }));
     await waitFor(() => expect(sendMessage).toHaveBeenCalledWith({ roomCode: "483210", memberId: "m1", nickname: "철수", content: "안녕" }));
     expect(input).toHaveValue("");
+  });
+
+  it("IME composition 중 Enter는 전송하지 않음 (Mac 한글 버그 방지)", async () => {
+    const { sendMessage } = await import("@/services/messages");
+    const user = userEvent.setup();
+    render(<ChatPanel messages={[]} roomCode="483210" memberId="m1" nickname="철수" />);
+    const input = screen.getByPlaceholderText(/메시지/);
+    await user.type(input, "안녕");
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229, isComposing: true });
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(input).toHaveValue("안녕");
+  });
+
+  it("composition 완료 후 Enter는 정상 전송", async () => {
+    const { sendMessage } = await import("@/services/messages");
+    const user = userEvent.setup();
+    render(<ChatPanel messages={[]} roomCode="483210" memberId="m1" nickname="철수" />);
+    const input = screen.getByPlaceholderText(/메시지/);
+    await user.type(input, "안녕");
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 13, isComposing: false });
+    await waitFor(() => expect(sendMessage).toHaveBeenCalledWith({ roomCode: "483210", memberId: "m1", nickname: "철수", content: "안녕" }));
   });
 });
