@@ -6,10 +6,12 @@ import { MemberList } from "@/components/watch-party/member-list";
 import { Player } from "@/components/watch-party/player";
 import { UrlChanger } from "@/components/watch-party/url-changer";
 import { ChatPanel } from "@/components/watch-party/chat-panel";
+import { HostDisconnectedBanner } from "@/components/watch-party/host-disconnected-banner";
 import { useMembers } from "@/hooks/use-members";
 import { useRoom } from "@/hooks/use-room";
 import { usePlaybackSync } from "@/hooks/use-playback-sync";
 import { useChat } from "@/hooks/use-chat";
+import { useHostHeartbeat } from "@/hooks/use-host-heartbeat";
 import { reattach, leaveRoom } from "@/services/members";
 
 type Session = {
@@ -24,6 +26,8 @@ type Props = {
   params: Promise<{ code: string }>;
 };
 
+const HEARTBEAT_TIMEOUT_MS = 10_000; // 10초 이상 heartbeat 없으면 배너 표시
+
 export default function RoomPage({ params }: Props) {
   const { code } = use(params);
   const router = useRouter();
@@ -32,6 +36,8 @@ export default function RoomPage({ params }: Props) {
   const playerRef = useRef<YT.Player | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [videoId, setVideoId] = useState<string | null>(null);
+  const [hostDisconnected, setHostDisconnected] = useState(false);
+  const lastHostSeenRef = useRef<number>(Date.now());
 
   const isHost = session?.isHost ?? false;
 
@@ -46,8 +52,26 @@ export default function RoomPage({ params }: Props) {
 
   const messages = useChat(code, session?.joinedAt ?? "");
 
+  useHostHeartbeat(code, isHost);
+
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const shareUrl = `${origin}/room/${code}`;
+
+  // room.last_host_seen_at 변화 감지로 배너 표시 여부 결정
+  useEffect(() => {
+    if (!room || isHost) return;
+    lastHostSeenRef.current = new Date(room.last_host_seen_at).getTime();
+  }, [room, isHost]);
+
+  // viewer: 10초 주기로 last_host_seen_at 확인
+  useEffect(() => {
+    if (isHost) return;
+    const interval = setInterval(() => {
+      const age = Date.now() - lastHostSeenRef.current;
+      setHostDisconnected(age > HEARTBEAT_TIMEOUT_MS);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isHost]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -94,6 +118,8 @@ export default function RoomPage({ params }: Props) {
           <div className="text-2xl font-mono font-bold tracking-widest">{code}</div>
           <div className="text-sm text-muted-foreground break-all">{shareUrl}</div>
         </div>
+
+        <HostDisconnectedBanner show={hostDisconnected && !isHost} />
 
         {isHost && (
           <UrlChanger roomCode={code} onVideoChange={handleVideoChange} />
