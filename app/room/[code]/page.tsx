@@ -13,7 +13,7 @@ import { usePlaybackSync } from "@/hooks/use-playback-sync";
 import { useChat } from "@/hooks/use-chat";
 import { useHostHeartbeat } from "@/hooks/use-host-heartbeat";
 import { reattach, leaveRoom } from "@/services/members";
-import { getSession } from "@/hooks/use-session";
+import { getSession, saveSession } from "@/hooks/use-session";
 
 type Session = {
   roomCode: string;
@@ -89,16 +89,33 @@ export default function RoomPage({ params }: Props) {
     }
 
     setSession(s);
-    reattach({ memberId: s.memberId, roomCode: code, nickname: s.nickname, isHost: s.isHost });
 
-    const handleUnload = () => {
-      if (!s.isHost) leaveRoom(s.memberId);
+    // reattach 결과의 id가 달라지면(fresh insert) session 갱신
+    let memberId = s.memberId;
+    reattach({ memberId: s.memberId, roomCode: code, nickname: s.nickname, isHost: s.isHost })
+      .then((member) => {
+        if (member && member.id !== s.memberId) {
+          memberId = member.id;
+          saveSession({ ...s, memberId: member.id });
+          setSession((prev) => (prev ? { ...prev, memberId: member.id } : prev));
+        }
+      });
+
+    // left 가드: pagehide(탭 닫기·새로고침)와 cleanup(SPA 네비게이션) 중 먼저 실행된 쪽만 delete
+    let left = false;
+    const leave = () => {
+      if (left) return;
+      left = true;
+      leaveRoom(memberId);
     };
-    window.addEventListener("beforeunload", handleUnload);
+
+    // pagehide: 탭 닫기·새로고침처럼 실제 언로드 시 호스트 포함 모두 leave
+    window.addEventListener("pagehide", leave);
 
     return () => {
-      window.removeEventListener("beforeunload", handleUnload);
-      if (!s.isHost) leaveRoom(s.memberId);
+      window.removeEventListener("pagehide", leave);
+      // SPA 네비게이션(Next.js router) 시 cleanup에서 leave
+      leave();
     };
   }, [code, router]);
 
