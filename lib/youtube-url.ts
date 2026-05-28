@@ -1,5 +1,5 @@
-const WATCH_URL = /^https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})(&.*)?$/;
-const SHORT_URL = /^https:\/\/youtu\.be\/([a-zA-Z0-9_-]{11})(\?.*)?$/;
+const WATCH_URL = /^https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)(&.*)?$/;
+const SHORT_URL = /^https:\/\/youtu\.be\/([a-zA-Z0-9_-]+)(\?.*)?$/;
 
 export function parseYouTubeUrl(url: string): string | null {
   const watchMatch = url.match(WATCH_URL);
