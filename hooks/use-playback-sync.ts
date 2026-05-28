@@ -85,31 +85,45 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
     };
   }, [roomCode, isHost, playerRef, onVideoChange]);
 
-  // viewer: 2초 주기 드리프트 보정
+  // viewer: 2초 주기 드리프트 보정 + play/pause 상태 동기화
   // host 위치는 마지막 알려진 위치 + 경과 시간으로 추정 — play 중일 때만 advance
   useEffect(() => {
     if (isHost) return;
 
-    const interval = setInterval(() => {
+    const YTPlayerState = (window as Window & { YT?: { PlayerState?: { PLAYING?: number; PAUSED?: number } } }).YT?.PlayerState;
+
+    const sync = () => {
       const p = playerRef.current;
       if (!p) return;
       try {
         const current = p.getCurrentTime?.();
         if (typeof current !== "number") return;
 
-        // host가 재생 중이면 시간 흐름을 반영한 예상 위치를 계산
         const expected = hostPlayingRef.current
           ? hostPositionRef.current + (Date.now() - hostPositionTimestampRef.current) / 1000
           : hostPositionRef.current;
 
+        const playerState = p.getPlayerState?.();
+        const isPlayerPlaying = playerState === YTPlayerState?.PLAYING;
         const drift = Math.abs(current - expected);
-        if (drift > 1) {
+
+        if (hostPlayingRef.current && !isPlayerPlaying) {
+          // host는 재생 중인데 viewer는 멈춰 있음 — seek 후 재생 (늦게 입장한 경우 포함)
+          p.seekTo(expected, true);
+          p.playVideo();
+        } else if (!hostPlayingRef.current && isPlayerPlaying) {
+          // host는 paused인데 viewer는 재생 중 — 정지
+          p.pauseVideo();
+        } else if (drift > 1) {
           p.seekTo(expected, true);
         }
       } catch {
         // player not ready yet
       }
-    }, 2000);
+    };
+
+    sync(); // 즉시 1회 실행 — 입장 직후 host 상태에 빠르게 맞춤
+    const interval = setInterval(sync, 2000);
 
     return () => clearInterval(interval);
   }, [isHost, playerRef]);
