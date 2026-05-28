@@ -21,7 +21,7 @@ export async function joinRoom({
     .select("id", { count: "exact", head: true })
     .eq("room_code", roomCode);
 
-  if ((count ?? 0) >= 10) return { member: null as unknown as Member, error: "방이 가득 찼습니다" };
+  if ((count ?? 0) >= 30) return { member: null as unknown as Member, error: "방이 가득 찼습니다" };
 
   const { data: member, error: memberErr } = await supabase
     .from("members")

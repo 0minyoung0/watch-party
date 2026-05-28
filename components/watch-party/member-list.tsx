@@ -31,7 +31,7 @@ export function MemberList({ members, variant = "stack" }: Props) {
 
   return (
     <Card className="p-4">
-      <h3 className="text-sm font-semibold mb-3">참여자 ({members.length}/10)</h3>
+      <h3 className="text-sm font-semibold mb-3">참여자 ({members.length}/30)</h3>
       <div className="flex flex-col gap-2">
         {members.map((m) => (
           <div key={m.id} className="flex items-center gap-2 text-sm">
