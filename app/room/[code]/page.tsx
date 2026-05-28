@@ -7,11 +7,13 @@ import { Player } from "@/components/watch-party/player";
 import { UrlChanger } from "@/components/watch-party/url-changer";
 import { ChatPanel } from "@/components/watch-party/chat-panel";
 import { HostDisconnectedBanner } from "@/components/watch-party/host-disconnected-banner";
+import { CopyButton } from "@/components/watch-party/copy-button";
 import { useMembers } from "@/hooks/use-members";
 import { useRoom } from "@/hooks/use-room";
 import { usePlaybackSync } from "@/hooks/use-playback-sync";
 import { useChat } from "@/hooks/use-chat";
 import { useHostHeartbeat } from "@/hooks/use-host-heartbeat";
+import { useSystemMessages } from "@/hooks/use-system-messages";
 import { reattach, leaveRoom } from "@/services/members";
 import { getSession, saveSession } from "@/hooks/use-session";
 
@@ -52,6 +54,7 @@ export default function RoomPage({ params }: Props) {
   });
 
   const messages = useChat(code, session?.joinedAt ?? "");
+  const { messages: systemMessages, broadcast: broadcastSystem } = useSystemMessages(code);
 
   useHostHeartbeat(code, isHost);
 
@@ -99,6 +102,8 @@ export default function RoomPage({ params }: Props) {
           saveSession({ ...s, memberId: member.id });
           setSession((prev) => (prev ? { ...prev, memberId: member.id } : prev));
         }
+        // join broadcast (호스트 재입장 포함)
+        broadcastSystem({ kind: "join", nickname: s.nickname, ts: Date.now() });
       });
 
     // left 가드: pagehide(탭 닫기·새로고침)와 cleanup(SPA 네비게이션) 중 먼저 실행된 쪽만 delete
@@ -106,6 +111,7 @@ export default function RoomPage({ params }: Props) {
     const leave = () => {
       if (left) return;
       left = true;
+      broadcastSystem({ kind: "leave", nickname: s.nickname, ts: Date.now() });
       leaveRoom(memberId);
     };
 
@@ -117,7 +123,7 @@ export default function RoomPage({ params }: Props) {
       // SPA 네비게이션(Next.js router) 시 cleanup에서 leave
       leave();
     };
-  }, [code, router]);
+  }, [code, router, broadcastSystem]);
 
   // room 삭제 감지 → closed 페이지
   useEffect(() => {
@@ -130,16 +136,27 @@ export default function RoomPage({ params }: Props) {
   }, [room, videoId]);
 
   if (room === undefined) {
-    return <div className="min-h-screen flex items-center justify-center">로딩 중…</div>;
+    return (
+      <main className="min-h-screen flex flex-col items-center p-3 sm:p-4 bg-background">
+        <div className="w-full max-w-5xl flex flex-col gap-3 mt-4">
+          <div className="h-8 w-40 bg-muted animate-pulse rounded" />
+          <div className="w-full aspect-video bg-muted animate-pulse rounded-lg" />
+          <div className="h-80 bg-muted animate-pulse rounded-lg" />
+        </div>
+      </main>
+    );
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-4 bg-background">
-      <div className="w-full max-w-5xl flex flex-col gap-4 mt-4">
+    <main className="min-h-screen flex flex-col items-center p-3 sm:p-4 bg-background">
+      <div className="w-full max-w-5xl flex flex-col gap-3 mt-4">
         {/* Header */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="text-2xl font-mono font-bold tracking-widest">{code}</div>
-          <div className="text-sm text-muted-foreground break-all">{shareUrl}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-2xl font-mono font-bold tracking-widest">{code}</span>
+            <CopyButton value={code} label="코드 복사" />
+          </div>
+          <CopyButton value={shareUrl} label="링크 복사" className="w-full sm:w-auto" />
         </div>
 
         <HostDisconnectedBanner show={hostDisconnected && !isHost} />
@@ -148,9 +165,9 @@ export default function RoomPage({ params }: Props) {
           <UrlChanger roomCode={code} onVideoChange={handleVideoChange} />
         )}
 
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col md:flex-row gap-3 md:gap-4">
           {/* Player area */}
-          <div className="flex-1 flex flex-col gap-4">
+          <div className="flex-1 min-w-0 flex flex-col gap-3">
             <Player
               roomCode={code}
               videoId={videoId}
@@ -158,9 +175,14 @@ export default function RoomPage({ params }: Props) {
               playerRef={playerRef}
               onStateChange={isHost ? onHostStateChange : undefined}
             />
+            {/* 모바일: 멤버 가로 스크롤 스트립 */}
+            <div className="md:hidden">
+              <MemberList members={members} variant="row" />
+            </div>
             {session && (
               <ChatPanel
                 messages={messages}
+                systemMessages={systemMessages}
                 roomCode={code}
                 memberId={session.memberId}
                 nickname={session.nickname}
@@ -168,8 +190,8 @@ export default function RoomPage({ params }: Props) {
             )}
           </div>
 
-          {/* Sidebar */}
-          <div className="w-full md:w-56 flex flex-col gap-4">
+          {/* Sidebar (데스크톱 전용) */}
+          <div className="hidden md:flex w-56 flex-col gap-4">
             <MemberList members={members} />
           </div>
         </div>

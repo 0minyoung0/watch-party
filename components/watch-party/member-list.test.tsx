@@ -19,4 +19,15 @@ describe("MemberList", () => {
     render(<MemberList members={members} />);
     expect(screen.getByText("HOST")).toBeInTheDocument();
   });
+
+  it("variant=row 일 때 flex-row 클래스 적용", () => {
+    const { container } = render(<MemberList members={members} variant="row" />);
+    expect(container.firstChild).toHaveClass("flex-row");
+  });
+
+  it("variant=row 일 때 닉네임 표시", () => {
+    render(<MemberList members={members} variant="row" />);
+    expect(screen.getByText("민영")).toBeInTheDocument();
+    expect(screen.getByText("철수")).toBeInTheDocument();
+  });
 });

@@ -3,9 +3,14 @@ import { render, screen } from "@testing-library/react";
 import { Player } from "./player";
 
 describe("Player", () => {
-  it("videoId 없으면 URL 안내 표시", () => {
+  it("videoId 없고 host이면 URL 입력 안내 표시", () => {
     render(<Player roomCode="483210" videoId={null} isHost={true} playerRef={{ current: null }} />);
-    expect(screen.getByText(/URL을 입력하세요/)).toBeInTheDocument();
+    expect(screen.getByText(/유튜브 URL을 붙여넣어 시작하세요/)).toBeInTheDocument();
+  });
+
+  it("videoId 없고 viewer이면 호스트 대기 메시지 표시", () => {
+    render(<Player roomCode="483210" videoId={null} isHost={false} playerRef={{ current: null }} />);
+    expect(screen.getByText(/호스트가 영상을 고르고 있어요/)).toBeInTheDocument();
   });
 
   it("videoId 있으면 player 컨테이너 렌더", () => {
