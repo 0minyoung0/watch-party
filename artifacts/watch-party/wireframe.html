@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wireframe: Watch Party</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  :root {
+    --w-bg: #f5f5f5;
+    --w-border: #ccc;
+    --w-text: #555;
+    --w-muted: #aaa;
+    --w-fill: #eee;
+  }
+
+  * {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    color: var(--w-text);
+  }
+
+  body { background: var(--w-bg); }
+
+  nav { position: sticky; top: 0; z-index: 40; background: var(--w-bg); border-bottom: 1px solid var(--w-border); }
+  nav button { cursor: pointer; font-size: 13px; }
+  nav button:hover { background: var(--w-fill); border-radius: 4px; }
+  nav button.active { font-weight: bold; border-bottom: 2px solid var(--w-text); }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .vp-toggle button {
+    font-size: 12px; padding: 2px 8px;
+    border: 1px solid var(--w-border); cursor: pointer; background: white;
+  }
+  .vp-toggle button:first-child { border-radius: 4px 0 0 4px; }
+  .vp-toggle button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+  .vp-toggle button.active { background: var(--w-text); color: white; }
+
+  body.viewport-mobile .screen-content {
+    max-width: 375px !important;
+    margin: 24px auto !important;
+    border: 2px solid var(--w-border);
+    border-radius: 24px;
+    min-height: 667px;
+    background: white;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    padding: 32px 16px !important;
+  }
+
+  .screen-notes {
+    background: #fffde7;
+    border-left: 3px solid #ffd54f;
+    padding: 12px 16px;
+    margin-top: 24px;
+    font-size: 13px;
+    border-radius: 0 4px 4px 0;
+  }
+  .screen-notes summary {
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 12px;
+    color: #b0a050;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .screen-notes p { margin: 6px 0 2px; color: #777; }
+  .screen-notes ul { margin: 4px 0 0 16px; padding: 0; color: #777; }
+  .screen-notes li { margin: 2px 0; }
+
+  /* 시나리오 드롭다운 */
+  .scenario-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--w-fill);
+    border-bottom: 1px solid var(--w-border);
+    font-size: 12px;
+  }
+  .scenario-bar select {
+    font-size: 12px;
+    padding: 2px 6px;
+    border: 1px solid var(--w-border);
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    color: var(--w-text);
+  }
+
+  /* 와이어프레임 공통 요소 */
+  .w-card {
+    border: 1px solid var(--w-border);
+    border-radius: 8px;
+    background: white;
+    padding: 16px;
+  }
+  .w-input {
+    width: 100%;
+    border: 1px solid var(--w-border);
+    border-radius: 4px;
+    padding: 7px 10px;
+    font-size: 13px;
+    background: var(--w-bg);
+    color: var(--w-text);
+  }
+  .w-input:focus { outline: 2px solid var(--w-text); outline-offset: 1px; }
+  .w-btn {
+    border: 1px solid var(--w-border);
+    border-radius: 4px;
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    background: var(--w-fill);
+  }
+  .w-btn-primary {
+    background: var(--w-text);
+    color: white;
+    border-color: var(--w-text);
+  }
+  .w-btn:disabled, .w-btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .w-label {
+    font-size: 11px;
+    color: var(--w-muted);
+    margin-bottom: 4px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .w-error {
+    font-size: 12px;
+    color: #c62828;
+    margin-top: 6px;
+  }
+  .w-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border: 1px solid var(--w-border);
+    border-radius: 10px;
+    background: var(--w-fill);
+    color: var(--w-muted);
+  }
+  .w-badge-host {
+    font-size: 10px;
+    padding: 1px 6px;
+    border: 1px solid var(--w-text);
+    border-radius: 10px;
+    background: var(--w-text);
+    color: white;
+  }
+  .w-divider {
+    border: none;
+    border-top: 1px solid var(--w-border);
+    margin: 16px 0;
+  }
+  .w-player {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: var(--w-fill);
+    border: 1px dashed var(--w-border);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--w-muted);
+    font-size: 13px;
+  }
+  .w-chat-msg { font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--w-fill); }
+  .w-chat-msg:last-child { border-bottom: none; }
+  .w-chat-nick { font-weight: bold; }
+  .w-alert {
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #7a6000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .w-section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--w-muted);
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--w-border);
+  }
+
+  /* scenario-controlled visibility */
+  .w-hidden { display: none !important; }
+</style>
+</head>
+<body class="p-0 m-0 viewport-mobile">
+
+<nav class="flex items-center gap-4 px-6 py-2">
+  <span class="text-xs" style="color:var(--w-muted)">wireframe</span>
+  <button id="nav-0" onclick="show(0)" class="px-2 py-1">랜딩</button>
+  <button id="nav-1" onclick="show(1)" class="px-2 py-1">방(host)</button>
+  <button id="nav-2" onclick="show(2)" class="px-2 py-1">방(viewer)</button>
+  <button id="nav-3" onclick="show(3)" class="px-2 py-1">방 종료</button>
+  <div class="vp-toggle flex ml-auto">
+    <button id="vp-desktop" onclick="setViewport('desktop')">Desktop</button>
+    <button id="vp-mobile" onclick="setViewport('mobile')" class="active">Mobile</button>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════
+     SCREEN 0: 랜딩
+     ══════════════════════════════════ -->
+<div id="screen-0" class="screen" data-scenario="default">
+
+  <!-- 시나리오 토글 -->
+  <div class="scenario-bar">
+    <span style="color:var(--w-muted)">시나리오:</span>
+    <select onchange="applyScenario(0, this.value)">
+      <option value="default">기본 (빈 폼)</option>
+      <option value="s1-filled">1. 방 생성 — 입력 완료</option>
+      <option value="s1-error">1. 방 생성 — URL 형식 에러</option>
+      <option value="s1-disabled">1. 방 생성 — 닉네임 없음(버튼 비활성)</option>
+      <option value="s2-filled">2. 입장 — 입력 완료</option>
+      <option value="s2-notfound">2. 입장 — 방 못 찾음</option>
+      <option value="s2-full">2. 입장 — 방 가득 참</option>
+      <option value="s2-prefill">2. 입장 — 공유 링크 prefill</option>
+    </select>
+  </div>
+
+  <div class="screen-content @container max-w-6xl mx-auto p-6">
+
+    <h1 class="text-xl font-bold mb-1" style="border-bottom:1px solid var(--w-border); padding-bottom:8px;">Watch Party</h1>
+    <p class="text-sm mb-6" style="color:var(--w-muted)">닉네임만으로 즉시 참여 · YouTube 영상을 함께</p>
+
+    <!-- 두 카드: 모바일 세로 스택 → @md: 가로 2컬럼 -->
+    <div class="@md:grid @md:grid-cols-2 @md:gap-6 flex flex-col gap-4">
+
+      <!-- 방 만들기 카드 -->
+      <div class="w-card">
+        <div class="w-section-title">방 만들기</div>
+
+        <div class="mb-3">
+          <label class="w-label">닉네임 <span style="color:#c62828">*</span></label>
+          <input class="w-input" type="text" placeholder="예: 민영"
+            data-val-default="" data-val-s1-filled="민영" data-val-s1-error="민영"
+            data-val-s1-disabled="" />
+        </div>
+
+        <div class="mb-3">
+          <label class="w-label">초기 YouTube URL <span style="color:var(--w-muted)">(선택)</span></label>
+          <input class="w-input" type="text" placeholder="https://youtu.be/..."
+            data-val-default="" data-val-s1-filled="https://youtu.be/dQw4w9WgXcQ"
+            data-val-s1-error="https://example.com/x" />
+        </div>
+
+        <!-- 에러 메시지 -->
+        <div class="w-error" data-show="s1-error">유효하지 않은 YouTube URL</div>
+
+        <button class="w-btn w-btn-primary w-full mt-2"
+          data-disabled-s1-disabled="true">방 만들기</button>
+      </div>
+
+      <!-- 입장 카드 -->
+      <div class="w-card">
+        <div class="w-section-title">입장</div>
+
+        <div class="mb-3">
+          <label class="w-label">방코드 (6자리)</label>
+          <input class="w-input" type="text" placeholder="483210" maxlength="6"
+            data-val-s2-filled="483210" data-val-s2-notfound="999999"
+            data-val-s2-full="483210" data-val-s2-prefill="483210"
+            data-readonly-s2-prefill="true" />
+        </div>
+
+        <div class="mb-3">
+          <label class="w-label">닉네임 <span style="color:#c62828">*</span></label>
+          <input class="w-input" type="text" placeholder="예: 철수"
+            data-val-s2-filled="철수" data-val-s2-notfound="철수"
+            data-val-s2-full="철수" />
+        </div>
+
+        <!-- 에러 메시지들 -->
+        <div class="w-error" data-show="s2-notfound">방을 찾을 수 없음</div>
+        <div class="w-error" data-show="s2-full">방이 가득 찼습니다</div>
+
+        <!-- prefill 안내 -->
+        <div data-show="s2-prefill" style="font-size:12px; color:var(--w-muted); margin-top:4px;">
+          <i data-lucide="link" style="width:12px;height:12px;display:inline;"></i> 공유 링크로 진입 — 방코드 자동 입력됨
+        </div>
+
+        <button class="w-btn w-btn-primary w-full mt-2">입장</button>
+      </div>
+
+    </div>
+
+    <div class="screen-notes">
+      <details open>
+        <summary>Notes</summary>
+        <ul>
+          <li>트리거: 직접 URL 접속 또는 공유 링크 클릭 (공유 링크는 방코드 prefill)</li>
+          <li>인터랙션: '방 만들기' 클릭 → 방(host) 화면 / '입장' 클릭 → 방(viewer) 화면</li>
+          <li>전환: 방 만들기 성공 → screen-1 / 입장 성공 → screen-2</li>
+        </ul>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN 1: 방 화면 — host
+     ══════════════════════════════════ -->
+<div id="screen-1" class="screen" data-scenario="default">
+
+  <div class="scenario-bar">
+    <span style="color:var(--w-muted)">시나리오:</span>
+    <select onchange="applyScenario(1, this.value)">
+      <option value="default">기본 (영상 재생 중)</option>
+      <option value="s1-empty">1. URL 없이 생성 — 빈 player</option>
+      <option value="s3-after">3. URL 교체 후 — 새 영상 0초</option>
+      <option value="s3-error">3. URL 교체 — 형식 에러</option>
+    </select>
+  </div>
+
+  <div class="screen-content @container max-w-6xl mx-auto p-6">
+
+    <!-- 헤더 -->
+    <div class="flex flex-wrap items-center gap-2 mb-4 pb-3" style="border-bottom:1px solid var(--w-border);">
+      <span class="w-badge-host">HOST</span>
+      <span class="font-bold">민영</span>
+      <span style="color:var(--w-muted); font-size:13px;">방코드</span>
+      <code class="font-bold" style="background:var(--w-fill); padding:2px 8px; border-radius:4px; border:1px solid var(--w-border);">483210</code>
+      <span style="color:var(--w-muted); font-size:12px;" class="hidden @md:inline">watch.party/room/483210</span>
+      <button class="w-btn ml-auto flex items-center gap-1" style="font-size:12px;">
+        <i data-lucide="copy" style="width:13px;height:13px;"></i> 링크 복사
+      </button>
+    </div>
+
+    <!-- 메인 레이아웃: 모바일 세로 → @md: 2/3 + 1/3 -->
+    <div class="@md:grid @md:grid-cols-3 @md:gap-4 flex flex-col gap-4">
+
+      <!-- 좌측: player + URL 바 -->
+      <div class="@md:col-span-2 flex flex-col gap-3">
+
+        <!-- player 영역 -->
+        <div class="w-player" data-show-not="s1-empty">
+          <div class="text-center">
+            <i data-lucide="youtube" style="width:32px;height:32px;display:block;margin:0 auto 6px;"></i>
+            <div>YouTube Player</div>
+            <div style="font-size:11px; color:var(--w-muted); margin-top:4px;">재생 중 · 1:24 / 3:32</div>
+          </div>
+        </div>
+
+        <!-- 빈 player (시나리오: URL 없이 생성) -->
+        <div class="w-player" data-show="s1-empty" style="color:var(--w-muted);">
+          URL을 입력하세요
+        </div>
+
+        <!-- URL 입력바 (host 전용) -->
+        <div class="w-card p-3">
+          <label class="w-label">YouTube URL 변경</label>
+          <div class="flex gap-2">
+            <input class="w-input" type="text" placeholder="https://youtu.be/..."
+              style="flex:1;"
+              data-val-s3-after="https://www.youtube.com/watch?v=NEWID123"
+              data-val-s3-error="https://example.com/bad" />
+            <button class="w-btn w-btn-primary" style="white-space:nowrap;">적용</button>
+          </div>
+          <div class="w-error" data-show="s3-error">유효하지 않은 YouTube URL</div>
+        </div>
+
+      </div>
+
+      <!-- 우측: 멤버 목록 + 채팅 -->
+      <div class="@md:col-span-1 flex flex-col gap-3">
+
+        <!-- 멤버 목록 -->
+        <div class="w-card">
+          <div class="w-section-title">멤버 (3 / 10)</div>
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="user" style="width:14px;height:14px;color:var(--w-muted)"></i>
+              <span class="text-sm">민영</span>
+              <span class="w-badge-host" style="font-size:9px; margin-left:2px;">HOST</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="user" style="width:14px;height:14px;color:var(--w-muted)"></i>
+              <span class="text-sm">철수</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="user" style="width:14px;height:14px;color:var(--w-muted)"></i>
+              <span class="text-sm">영희</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 채팅 -->
+        <div class="w-card flex flex-col" style="min-height:200px;">
+          <div class="w-section-title">채팅</div>
+          <div class="flex-1 overflow-y-auto mb-3" style="max-height:160px;">
+            <div class="w-chat-msg"><span class="w-chat-nick">철수</span>: 안녕하세요!</div>
+            <div class="w-chat-msg"><span class="w-chat-nick">영희</span>: ㅎㅎ 좋은 영상이네요</div>
+            <div class="w-chat-msg"><span class="w-chat-nick">민영</span>: 오늘 이거 같이 봐요</div>
+          </div>
+          <div class="flex gap-2">
+            <input class="w-input" type="text" placeholder="메시지 입력…" style="flex:1; font-size:12px;" />
+            <button class="w-btn" style="font-size:12px; padding:6px 10px;">
+              <i data-lucide="send" style="width:13px;height:13px;"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="screen-notes">
+      <details open>
+        <summary>Notes</summary>
+        <ul>
+          <li>트리거: 방 만들기 성공 직후 진입</li>
+          <li>인터랙션: URL 입력 후 '적용' → 영상 교체 / 채팅 입력 후 전송 / 링크 복사 버튼</li>
+          <li>전환: 탭 닫기 → 30초 후 방 종료 (viewer들은 screen-3으로)</li>
+        </ul>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN 2: 방 화면 — viewer
+     ══════════════════════════════════ -->
+<div id="screen-2" class="screen" data-scenario="default">
+
+  <div class="scenario-bar">
+    <span style="color:var(--w-muted)">시나리오:</span>
+    <select onchange="applyScenario(2, this.value)">
+      <option value="default">기본 (정상 시청)</option>
+      <option value="s8-disconnected">8. 호스트 연결 끊김 안내</option>
+      <option value="s9-reconnect">9. 재접속 (자동 재입장)</option>
+    </select>
+  </div>
+
+  <div class="screen-content @container max-w-6xl mx-auto p-6">
+
+    <!-- 호스트 끊김 안내 띠 -->
+    <div class="w-alert mb-4" data-show="s8-disconnected">
+      <i data-lucide="wifi-off" style="width:16px;height:16px;flex-shrink:0;"></i>
+      <span>호스트 연결이 끊겼습니다… 재연결 대기 중 (25초)</span>
+    </div>
+
+    <!-- 헤더 -->
+    <div class="flex flex-wrap items-center gap-2 mb-4 pb-3" style="border-bottom:1px solid var(--w-border);">
+      <span class="w-badge">VIEWER</span>
+      <span class="font-bold">철수</span>
+      <span style="color:var(--w-muted); font-size:13px;">방코드</span>
+      <code class="font-bold" style="background:var(--w-fill); padding:2px 8px; border-radius:4px; border:1px solid var(--w-border);">483210</code>
+      <button class="w-btn ml-auto flex items-center gap-1" style="font-size:12px;">
+        <i data-lucide="copy" style="width:13px;height:13px;"></i> 링크 복사
+      </button>
+    </div>
+
+    <!-- 재접속 안내 -->
+    <div class="w-alert mb-4" data-show="s9-reconnect" style="background:#e8f5e9; border-color:#a5d6a7; color:#2e7d32;">
+      <i data-lucide="refresh-cw" style="width:16px;height:16px;flex-shrink:0;"></i>
+      <span>재연결 완료 — host 재생 위치에 동기화되었습니다</span>
+    </div>
+
+    <!-- 메인 레이아웃 -->
+    <div class="@md:grid @md:grid-cols-3 @md:gap-4 flex flex-col gap-4">
+
+      <!-- 좌측: player (URL 입력바 없음) -->
+      <div class="@md:col-span-2">
+        <div class="w-player">
+          <div class="text-center">
+            <i data-lucide="youtube" style="width:32px;height:32px;display:block;margin:0 auto 6px;"></i>
+            <div>YouTube Player</div>
+            <div style="font-size:11px; color:var(--w-muted); margin-top:4px;">재생 중 · 1:24 / 3:32</div>
+          </div>
+        </div>
+        <!-- viewer에게 URL 입력바 없음 — 의도적 공백 -->
+        <div style="height:8px;"></div>
+      </div>
+
+      <!-- 우측: 멤버 목록 + 채팅 -->
+      <div class="@md:col-span-1 flex flex-col gap-3">
+
+        <div class="w-card">
+          <div class="w-section-title">멤버 (3 / 10)</div>
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+              <i data-lucide="user" style="width:14px;height:14px;color:var(--w-muted)"></i>
+              <span class="text-sm">민영</span>
+              <span class="w-badge-host" style="font-size:9px; margin-left:2px;">HOST</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="user" style="width:14px;height:14px;color:var(--w-muted)"></i>
+              <span class="text-sm">철수</span>
+              <span style="font-size:10px; color:var(--w-muted);">(나)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="user" style="width:14px;height:14px;color:var(--w-muted)"></i>
+              <span class="text-sm">영희</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="w-card flex flex-col" style="min-height:200px;">
+          <div class="w-section-title">채팅</div>
+          <div class="flex-1 overflow-y-auto mb-3" style="max-height:160px;">
+            <div class="w-chat-msg"><span class="w-chat-nick">철수</span>: 안녕하세요!</div>
+            <div class="w-chat-msg"><span class="w-chat-nick">영희</span>: ㅎㅎ 좋은 영상이네요</div>
+            <div class="w-chat-msg"><span class="w-chat-nick">민영</span>: 오늘 이거 같이 봐요</div>
+          </div>
+          <div class="flex gap-2">
+            <input class="w-input" type="text" placeholder="메시지 입력…" style="flex:1; font-size:12px;" />
+            <button class="w-btn" style="font-size:12px; padding:6px 10px;">
+              <i data-lucide="send" style="width:13px;height:13px;"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="screen-notes">
+      <details open>
+        <summary>Notes</summary>
+        <ul>
+          <li>트리거: 입장 성공 직후 / 재접속 시 자동 진입</li>
+          <li>인터랙션: 채팅 전송 / 링크 복사 / player는 host 제어에 종속(viewer 조작 무시)</li>
+          <li>전환: host 30초 부재 → screen-3 (방 종료)</li>
+        </ul>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN 3: 방 종료
+     ══════════════════════════════════ -->
+<div id="screen-3" class="screen" data-scenario="default">
+
+  <div class="screen-content @container max-w-6xl mx-auto p-6">
+
+    <div class="flex flex-col items-center justify-center" style="min-height:400px; gap:16px;">
+      <i data-lucide="tv-off" style="width:48px;height:48px; color:var(--w-muted);"></i>
+      <h2 class="text-lg font-bold" style="color:var(--w-muted);">방이 종료되었습니다</h2>
+      <p class="text-sm text-center" style="color:var(--w-muted); max-width:280px;">호스트가 방을 떠났습니다. 채팅과 재생 상태는 모두 삭제됩니다.</p>
+      <button class="w-btn w-btn-primary flex items-center gap-2">
+        <i data-lucide="arrow-left" style="width:14px;height:14px;"></i>
+        랜딩으로 돌아가기
+      </button>
+    </div>
+
+    <div class="screen-notes">
+      <details open>
+        <summary>Notes</summary>
+        <ul>
+          <li>트리거: host 30초 부재 → viewer 전원 이동 / 종료된 방코드로 입장 시도 시</li>
+          <li>인터랙션: '랜딩으로 돌아가기' 버튼 클릭</li>
+          <li>전환: 버튼 클릭 → screen-0 (랜딩)</li>
+        </ul>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<!--
+  ──────────────────────────────────────
+  화면 삽입 패턴 (이 주석은 삭제하지 않는다)
+  ──────────────────────────────────────
+
+  NAV_BUTTONS 위치에 삽입:
+  <button id="nav-0" onclick="show(0)" class="px-2 py-1">화면 이름</button>
+
+  SCREEN_CONTENT 위치에 삽입:
+  <div id="screen-0" class="screen" data-scenario="FEATURE-001, FEATURE-002">
+    <div class="screen-content @container max-w-6xl mx-auto p-6">
+      ...
+    </div>
+  </div>
+-->
+
+<script>
+var currentScreen = 0;
+var screenIds = [];
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('screen-' + id).classList.add('active');
+  document.querySelectorAll('nav button[id^="nav-"]').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('nav-' + id).classList.add('active');
+  currentScreen = screenIds.indexOf(id);
+}
+
+function setViewport(mode) {
+  document.body.classList.remove('viewport-mobile', 'viewport-desktop');
+  document.body.classList.add('viewport-' + mode);
+  document.querySelectorAll('.vp-toggle button').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('vp-' + mode).classList.add('active');
+}
+
+function applyScenario(screenIdx, scenario) {
+  var screen = document.getElementById('screen-' + screenIdx);
+  if (!screen) return;
+  screen.setAttribute('data-scenario', scenario);
+
+  // data-show="<scenario>" → 해당 시나리오일 때만 표시
+  screen.querySelectorAll('[data-show]').forEach(function(el) {
+    var show = el.getAttribute('data-show');
+    el.classList.toggle('w-hidden', show !== scenario);
+  });
+
+  // data-show-not="<scenario>" → 해당 시나리오가 아닐 때 표시
+  screen.querySelectorAll('[data-show-not]').forEach(function(el) {
+    var hide = el.getAttribute('data-show-not');
+    el.classList.toggle('w-hidden', hide === scenario);
+  });
+
+  // data-val-<scenario>="value" → input value 채우기
+  screen.querySelectorAll('input').forEach(function(el) {
+    var val = el.getAttribute('data-val-' + scenario);
+    if (val !== null) el.value = val;
+
+    var defVal = el.getAttribute('data-val-default');
+    if (val === null && defVal !== null) el.value = defVal;
+  });
+
+  // data-readonly-<scenario>="true" → readonly 적용
+  screen.querySelectorAll('input').forEach(function(el) {
+    var ro = el.getAttribute('data-readonly-' + scenario);
+    el.readOnly = (ro === 'true');
+    if (ro === 'true') {
+      el.style.background = 'var(--w-fill)';
+      el.style.color = 'var(--w-muted)';
+    } else {
+      el.style.background = '';
+      el.style.color = '';
+    }
+  });
+
+  // data-disabled-<scenario>="true" → button disabled
+  screen.querySelectorAll('button').forEach(function(el) {
+    var dis = el.getAttribute('data-disabled-' + scenario);
+    el.disabled = (dis === 'true');
+  });
+
+  lucide.createIcons();
+}
+
+// 시나리오 초기화: 기본 상태로 모든 data-show 요소 숨김
+function initScenarios() {
+  document.querySelectorAll('[data-show]').forEach(function(el) {
+    el.classList.add('w-hidden');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('nav button[id^="nav-"]').forEach(function(b) {
+    screenIds.push(parseInt(b.id.replace('nav-', '')));
+  });
+  var first = document.querySelector('nav button[id^="nav-"]');
+  if (first) first.click();
+  initScenarios();
+  lucide.createIcons();
+});
+</script>
+</body>
+</html>
