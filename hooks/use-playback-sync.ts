@@ -15,15 +15,22 @@ type Options = {
 export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: Options) {
   const hostPositionRef = useRef<number>(0);
   const hostPlayingRef = useRef<boolean>(false);
+  // host 위치가 마지막으로 갱신된 wall-clock 시각 — viewer가 시간 흐름을 추정하는 데 사용
+  const hostPositionTimestampRef = useRef<number>(Date.now());
   // 구독된 채널 인스턴스를 ref로 보관해 host도 같은 인스턴스로 send
   const broadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  function updateHostPosition(positionSeconds: number, isPlaying: boolean) {
+    hostPositionRef.current = positionSeconds;
+    hostPlayingRef.current = isPlaying;
+    hostPositionTimestampRef.current = Date.now();
+  }
 
   useEffect(() => {
     // DB에서 현재 상태 복원
     getState(roomCode).then((state) => {
       if (!state) return;
-      hostPositionRef.current = Number(state.position_seconds);
-      hostPlayingRef.current = state.is_playing;
+      updateHostPosition(Number(state.position_seconds), state.is_playing);
       if (state.video_id && onVideoChange) onVideoChange(state.video_id);
     });
 
@@ -32,8 +39,7 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
       .channel(`playback:${roomCode}`)
       .on("broadcast", { event: "play" }, ({ payload }) => {
         if (isHost) return;
-        hostPositionRef.current = payload.positionSeconds;
-        hostPlayingRef.current = true;
+        updateHostPosition(payload.positionSeconds, true);
         const p = playerRef.current;
         if (!p) return;
         p.seekTo(payload.positionSeconds, true);
@@ -41,8 +47,7 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
       })
       .on("broadcast", { event: "pause" }, ({ payload }) => {
         if (isHost) return;
-        hostPositionRef.current = payload.positionSeconds;
-        hostPlayingRef.current = false;
+        updateHostPosition(payload.positionSeconds, false);
         const p = playerRef.current;
         if (!p) return;
         p.seekTo(payload.positionSeconds, true);
@@ -50,7 +55,7 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
       })
       .on("broadcast", { event: "seek" }, ({ payload }) => {
         if (isHost) return;
-        hostPositionRef.current = payload.positionSeconds;
+        updateHostPosition(payload.positionSeconds, hostPlayingRef.current);
         const p = playerRef.current;
         if (!p) return;
         p.seekTo(payload.positionSeconds, true);
@@ -68,8 +73,7 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
         (payload) => {
           const state = payload.new as PlaybackState;
           if (state.video_id && onVideoChange) onVideoChange(state.video_id);
-          hostPositionRef.current = Number(state.position_seconds);
-          hostPlayingRef.current = state.is_playing;
+          updateHostPosition(Number(state.position_seconds), state.is_playing);
         }
       )
       .subscribe();
@@ -82,18 +86,25 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
   }, [roomCode, isHost, playerRef, onVideoChange]);
 
   // viewer: 2초 주기 드리프트 보정
+  // host 위치는 마지막 알려진 위치 + 경과 시간으로 추정 — play 중일 때만 advance
   useEffect(() => {
     if (isHost) return;
 
     const interval = setInterval(() => {
       const p = playerRef.current;
-      if (!p || !hostPlayingRef.current) return;
+      if (!p) return;
       try {
         const current = p.getCurrentTime?.();
         if (typeof current !== "number") return;
-        const drift = Math.abs(current - hostPositionRef.current);
+
+        // host가 재생 중이면 시간 흐름을 반영한 예상 위치를 계산
+        const expected = hostPlayingRef.current
+          ? hostPositionRef.current + (Date.now() - hostPositionTimestampRef.current) / 1000
+          : hostPositionRef.current;
+
+        const drift = Math.abs(current - expected);
         if (drift > 1) {
-          p.seekTo(hostPositionRef.current, true);
+          p.seekTo(expected, true);
         }
       } catch {
         // player not ready yet
@@ -114,20 +125,15 @@ export function usePlaybackSync({ roomCode, isHost, playerRef, onVideoChange }: 
     const YTState = (window as Window & { YT?: { PlayerState?: { PLAYING?: number; PAUSED?: number } } }).YT?.PlayerState;
 
     if (event.data === YTState?.PLAYING) {
-      hostPositionRef.current = pos;
-      hostPlayingRef.current = true;
+      updateHostPosition(pos, true);
       ch.send({ type: "broadcast", event: "play", payload: { positionSeconds: pos, isPlaying: true } });
       supabase.from("playback_state").upsert({ room_code: roomCode, is_playing: true, position_seconds: pos, updated_at: new Date().toISOString() });
     } else if (event.data === YTState?.PAUSED) {
-      hostPositionRef.current = pos;
-      hostPlayingRef.current = false;
+      updateHostPosition(pos, false);
       ch.send({ type: "broadcast", event: "pause", payload: { positionSeconds: pos, isPlaying: false } });
       supabase.from("playback_state").upsert({ room_code: roomCode, is_playing: false, position_seconds: pos, updated_at: new Date().toISOString() });
     }
   }, [isHost, playerRef, roomCode]);
-
-  // host seek 이벤트 (현재 시간 기반 주기적 싱크) — 드리프트 보정 대신 seek 이벤트 직접 감지
-  // YouTube API는 seek 전용 이벤트를 제공하지 않음. PLAYING 이벤트가 seek 후에도 발생하므로 onHostStateChange로 커버됨
 
   return { onHostStateChange, hostPositionRef };
 }

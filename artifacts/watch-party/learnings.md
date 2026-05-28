@@ -22,7 +22,7 @@ applied: not-yet
 
 ---
 category: tooling
-applied: not-yet
+applied: rule → .claude/rules/vitest-e2e-exclude.md
 ---
 ## vitest가 e2e 폴더를 잡지 않도록 exclude 필요
 
@@ -52,13 +52,24 @@ applied: not-yet
 
 ---
 category: code-review
-applied: rule
+applied: rule → .claude/rules/supabase-broadcast.md
 ---
 ## Supabase broadcast: subscribe 없이 send 불가
 
 **상황**: Step 4 코드 리뷰 [C1], `broadcastControl`이 독립 채널로 send → viewer 미수신
 **판단**: Supabase JS v2에서 `.channel().send()`는 해당 채널이 subscribe되어 있어야 전달됨. host가 send할 때 viewer가 subscribe한 채널 인스턴스와 같은 것이어야 함. `use-playback-sync` 내부에서 subscribe된 채널 ref를 통해 send하도록 수정.
 **다시 마주칠 가능성**: 높음 — Supabase Realtime broadcast를 사용하는 모든 feature에서 반복 가능
+
+---
+---
+category: regression
+applied: not-yet
+---
+## ref 기반 host 위치 동기화에 timestamp를 함께 기록해야 한다
+
+**상황**: watch-party 수동 테스트, host 50초에서 play 클릭 → viewer가 51, 52, 53초로 진행 중 드리프트 보정이 계속 50초로 seek-back
+**판단**: `hostPositionRef.current`는 마지막 이벤트 시점 값으로 고정, 시간이 흘러도 advance되지 않음. viewer 보정 루프가 `Math.abs(current - 50) > 1`로 판단해 무한 seek-back. 수정: `hostPositionTimestampRef`(Date.now())를 함께 기록하고, 보정 루프에서 `expected = hostPosition + (Date.now() - timestamp) / 1000`으로 시간 흐름을 추정.
+**다시 마주칠 가능성**: 높음 — realtime 위치 동기화 로직에서 "마지막 알려진 상태"를 고정값으로만 쓰는 패턴은 같은 문제를 낳음
 
 ---
 category: code-review
